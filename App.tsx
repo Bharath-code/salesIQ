@@ -30,13 +30,18 @@ const App: React.FC = () => {
     setErrorMsg(null);
     setFileName(file.name);
 
-    try {
-      // Create object URL for playback (needed even for cached items)
-      const url = URL.createObjectURL(file);
-      setAudioUrl(url);
+    let currentUrl: string | null = null;
 
-      // Check cache first
-      // Using version + name + size + lastModified as a unique key
+    try {
+      // 1. Initialize Audio Player (Browser Check)
+      try {
+        currentUrl = URL.createObjectURL(file);
+        setAudioUrl(currentUrl);
+      } catch (e) {
+        throw new Error("Failed to initialize audio player. Your browser may not support this file type.");
+      }
+
+      // Check cache
       const cacheKey = `${CACHE_VERSION}-${file.name}-${file.size}-${file.lastModified}`;
       
       if (analysisCache.current.has(cacheKey)) {
@@ -52,29 +57,53 @@ const App: React.FC = () => {
         return;
       }
 
-      // Process file conversion and duration extraction in parallel
-      const [base64Data, audioDuration] = await Promise.all([
-        fileToBase64(file),
-        getAudioDuration(file)
-      ]);
+      // 2. File Processing (Conversion & Metadata)
+      let base64Data: string;
+      let audioDuration: string;
+
+      try {
+        [base64Data, audioDuration] = await Promise.all([
+          fileToBase64(file),
+          getAudioDuration(file)
+        ]);
+      } catch (e) {
+        console.error("File processing failed:", e);
+        throw new Error("Unable to process the audio file. It might be corrupted or in an unsupported format.");
+      }
       
       setDuration(audioDuration);
       setAppState(AppState.ANALYZING);
       
-      // Call Gemini API
-      const result = await analyzeSalesCall(base64Data, file.type);
+      // 3. AI Analysis (API Call)
+      let result: AnalysisResult;
+      try {
+        result = await analyzeSalesCall(base64Data, file.type);
+      } catch (e: any) {
+        console.error("Gemini API Error:", e);
+        const msg = e.message || '';
+        
+        if (msg.includes('400')) throw new Error("The audio format is not supported by the AI model.");
+        if (msg.includes('413')) throw new Error("The audio file is too large to be processed.");
+        if (msg.includes('429')) throw new Error("Too many requests. Please wait a moment and try again.");
+        if (msg.includes('Candidate was blocked')) throw new Error("Analysis blocked by safety filters. Content may be inappropriate.");
+        
+        throw new Error("AI analysis failed to generate a response. Please try again.");
+      }
       
       // Save to cache
       analysisCache.current.set(cacheKey, { result, duration: audioDuration });
       
       setAnalysisData(result);
       setAppState(AppState.SUCCESS);
-    } catch (err) {
-      console.error(err);
+
+    } catch (err: any) {
+      console.error("Global handler:", err);
       setAppState(AppState.ERROR);
-      setErrorMsg("Failed to analyze audio. Please try again with a valid audio file.");
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+      setErrorMsg(err.message || "An unexpected error occurred. Please try again.");
+      
+      // Cleanup the URL if we created one but failed to complete
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
         setAudioUrl(null);
       }
     }
