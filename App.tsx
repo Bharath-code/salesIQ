@@ -10,6 +10,20 @@ import { fileToBase64, getAudioDuration, downloadFullAnalysisAsCsv } from './uti
 // Increment this version to invalidate client-side cache when logic changes
 const CACHE_VERSION = 'v2';
 
+interface CachedAnalysis {
+  result: AnalysisResult;
+  duration: string;
+  file: File;
+  timestamp: number;
+}
+
+interface RecentUpload {
+  fileName: string;
+  duration: string;
+  timestamp: number;
+  cacheKey: string;
+}
+
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [analysisData, setAnalysisData] = useState<AnalysisResult | null>(null);
@@ -17,13 +31,49 @@ const App: React.FC = () => {
   const [fileName, setFileName] = useState<string>('');
   const [duration, setDuration] = useState<string>('');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
   
-  // Cache to store analysis results: Key = file hash/metadata, Value = { result, duration }
-  const analysisCache = useRef<Map<string, { result: AnalysisResult, duration: string }>>(new Map());
+  // Cache to store analysis results: Key = file hash/metadata
+  const analysisCache = useRef<Map<string, CachedAnalysis>>(new Map());
   
   // Share state
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
+
+  const addToRecentUploads = (key: string, name: string, dur: string) => {
+    setRecentUploads(prev => {
+      // Avoid duplicates
+      if (prev.some(item => item.cacheKey === key)) return prev;
+      return [
+        { fileName: name, duration: dur, timestamp: Date.now(), cacheKey: key },
+        ...prev
+      ];
+    });
+  };
+
+  const handleRecentSelect = async (cacheKey: string) => {
+    const cached = analysisCache.current.get(cacheKey);
+    if (!cached) return;
+
+    setAppState(AppState.UPLOADING);
+    // Small delay for UI feedback
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      // Re-create URL for playback since the previous one might have been revoked
+      const newUrl = URL.createObjectURL(cached.file);
+      setAudioUrl(newUrl);
+      
+      setFileName(cached.file.name);
+      setDuration(cached.duration);
+      setAnalysisData(cached.result);
+      setAppState(AppState.SUCCESS);
+    } catch (e) {
+      console.error("Failed to restore session", e);
+      setAppState(AppState.IDLE);
+      setErrorMsg("Could not restore previous session. Please upload the file again.");
+    }
+  };
 
   const handleFileSelect = async (file: File) => {
     setAppState(AppState.UPLOADING);
@@ -54,6 +104,7 @@ const App: React.FC = () => {
         setDuration(cached.duration);
         setAnalysisData(cached.result);
         setAppState(AppState.SUCCESS);
+        addToRecentUploads(cacheKey, file.name, cached.duration);
         return;
       }
 
@@ -91,8 +142,14 @@ const App: React.FC = () => {
       }
       
       // Save to cache
-      analysisCache.current.set(cacheKey, { result, duration: audioDuration });
+      analysisCache.current.set(cacheKey, { 
+        result, 
+        duration: audioDuration,
+        file: file,
+        timestamp: Date.now()
+      });
       
+      addToRecentUploads(cacheKey, file.name, audioDuration);
       setAnalysisData(result);
       setAppState(AppState.SUCCESS);
 
@@ -219,9 +276,46 @@ const App: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5 overflow-hidden">
-                <FileUpload onFileSelect={handleFileSelect} disabled={appState !== AppState.IDLE && appState !== AppState.ERROR} />
-              </div>
+              <>
+                <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5 overflow-hidden">
+                  <FileUpload onFileSelect={handleFileSelect} disabled={appState !== AppState.IDLE && appState !== AppState.ERROR} />
+                </div>
+                
+                {/* Recent Uploads List */}
+                {recentUploads.length > 0 && (
+                  <div className="mt-8 animate-fade-in-up">
+                    <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 px-1">Recent Sessions</h3>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+                      {recentUploads.map((item) => (
+                        <div 
+                          key={item.cacheKey}
+                          onClick={() => handleRecentSelect(item.cacheKey)}
+                          className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer transition-colors group"
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex-shrink-0 flex items-center justify-center text-indigo-600">
+                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 3-2 3-2zm0 0v-6.2M9 19l12-3M9 12.8V6" />
+                               </svg>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-900 truncate group-hover:text-indigo-700 transition-colors">
+                                {item.fileName}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {item.duration} • Processed just now
+                              </p>
+                            </div>
+                          </div>
+                          <svg className="w-5 h-5 text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

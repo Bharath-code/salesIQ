@@ -209,12 +209,12 @@ const TranscriptView: React.FC<TranscriptViewProps> = ({ transcript, fileName = 
                     </span>
                 </div>
                 <div 
-                    className={`px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed border shadow-sm transition-all duration-200
+                    className={`px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed border shadow-sm transition-all duration-300 ease-out
                     ${isProspect 
-                        ? 'bg-white border-slate-200 text-slate-700 rounded-tl-sm hover:border-slate-300' 
-                        : 'bg-indigo-600 border-indigo-600 text-white rounded-tr-sm hover:bg-indigo-700'
+                        ? `bg-white text-slate-700 rounded-tl-sm ${isActive ? 'border-indigo-300 shadow-lg ring-1 ring-indigo-200' : 'border-slate-200 hover:border-slate-300'}` 
+                        : `bg-indigo-600 text-white rounded-tr-sm ${isActive ? 'border-indigo-400 shadow-lg ring-1 ring-indigo-300' : 'border-indigo-600 hover:bg-indigo-700'}`
                     }
-                    ${isActive ? 'ring-2 ring-offset-2 ring-indigo-400/60 scale-[1.01] shadow-md' : 'hover:scale-[1.01] hover:shadow-md'}
+                    ${isActive ? 'scale-[1.02] transform' : 'hover:scale-[1.01] hover:shadow-md'}
                     `}
                 >
                     {renderHighlightedText(segment.text, searchQuery)}
