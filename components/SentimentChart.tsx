@@ -8,8 +8,8 @@ interface SentimentChartProps {
 
 const SentimentChart: React.FC<SentimentChartProps> = ({ data }) => {
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-64 w-full relative" style={{ minWidth: 0 }}>
+      <ResponsiveContainer width="99%" height="100%" debounce={50}>
         <AreaChart
           data={data}
           margin={{ top: 10, right: 30, left: 0, bottom: 0 }}

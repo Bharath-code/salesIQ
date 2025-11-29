@@ -8,7 +8,7 @@ import { analyzeSalesCall } from './services/gemini';
 import { fileToBase64, getAudioDuration, downloadFullAnalysisAsCsv } from './utils/fileUtils';
 
 // Increment this version to invalidate client-side cache when logic changes
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 
 interface CachedAnalysis {
   result: AnalysisResult;

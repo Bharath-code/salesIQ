@@ -16,7 +16,10 @@ export const analyzeSalesCall = async (base64Audio: string, mimeType: string): P
        - Label the customer as "Prospect" (translated into the detected audio language).
        - Only use "Speaker A/B" if roles are absolutely ambiguous.
        - Include precise start and end timestamps for each segment (e.g., "00:15", "00:22").
-    3. **Sentiment Analysis**: Analyze the engagement and sentiment level throughout the call (10-15 key moments). Score from 0-100.
+    3. **Sentiment Analysis**: Analyze the engagement and sentiment level throughout the call. 
+       - **CRITICAL**: Identify exactly 10-15 distinct time points distributed EVENLY across the entire duration.
+       - Score from 0 (Negative/Disengaged) to 100 (Positive/Highly Engaged).
+       - Be consistent and strict with scoring.
     4. **Coaching Card**: Identify 3 Strengths and 3 Improvements for the salesperson.
     5. **Summary**: A 2-sentence executive summary.
     6. **Key Topics**: 5-7 key topics discussing objections or features.
@@ -46,6 +49,7 @@ export const analyzeSalesCall = async (base64Audio: string, mimeType: string): P
         ]
       },
       config: {
+        temperature: 0, // Force deterministic output
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,

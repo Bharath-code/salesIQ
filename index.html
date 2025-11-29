@@ -27,6 +27,20 @@
                 800: '#1e293b',
                 900: '#0f172a',
               }
+            },
+            keyframes: {
+              'fade-in-up': {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              'bounce-up': {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-5px)' },
+              }
+            },
+            animation: {
+              'fade-in-up': 'fade-in-up 0.5s ease-out',
+              'bounce-up': 'bounce-up 2s infinite',
             }
           }
         }
