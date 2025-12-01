@@ -10,10 +10,10 @@ const CoachingCard: React.FC<CoachingCardProps> = ({ coaching, summary }) => {
   return (
     <div className="space-y-6">
       {/* Summary Section - Prominent Design */}
-      <div className="bg-gradient-to-br from-indigo-50/50 via-white to-white rounded-xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-indigo-100/80">
+      <div className="bg-white rounded-xl p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100">
         <div className="flex items-center gap-2.5 mb-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 shadow-sm shadow-indigo-100">
-                 <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600">
+                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>

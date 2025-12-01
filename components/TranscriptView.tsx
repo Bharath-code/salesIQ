@@ -23,6 +23,39 @@ const TranscriptView: React.FC<TranscriptViewProps> = ({ transcript, fileName = 
     return 0;
   };
 
+  const formatDuration = (totalSeconds: number): string => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = Math.floor(totalSeconds % 60);
+    return `${m}m ${s}s`;
+  };
+
+  // Helper to map generic labels to roles if inference was ambiguous
+  const getDisplaySpeaker = (originalSpeaker: string) => {
+    const lower = originalSpeaker.toLowerCase();
+    
+    // If it's generic Speaker A/1, assume Salesperson
+    if (lower === 'speaker a' || lower === 'speaker 1') return 'Salesperson';
+    
+    // If it's generic Speaker B/2, assume Prospect
+    if (lower === 'speaker b' || lower === 'speaker 2') return 'Prospect';
+    
+    return originalSpeaker;
+  };
+
+  const speakerStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    transcript.forEach(t => {
+      const name = getDisplaySpeaker(t.speaker);
+      const start = parseTimestamp(t.timestamp);
+      // If end time is missing, estimate based on text length or default to start + 2s
+      const end = t.endTime ? parseTimestamp(t.endTime) : start + 2; 
+      const duration = Math.max(0, end - start);
+      
+      stats[name] = (stats[name] || 0) + duration;
+    });
+    return stats;
+  }, [transcript]);
+
   const handleDownload = () => {
     downloadTranscriptAsCsv(transcript, fileName);
   };
@@ -74,19 +107,6 @@ const TranscriptView: React.FC<TranscriptViewProps> = ({ transcript, fileName = 
         <span key={i}>{part}</span>
       )
     );
-  };
-
-  // Helper to map generic labels to roles if inference was ambiguous
-  const getDisplaySpeaker = (originalSpeaker: string) => {
-    const lower = originalSpeaker.toLowerCase();
-    
-    // If it's generic Speaker A/1, assume Salesperson
-    if (lower === 'speaker a' || lower === 'speaker 1') return 'Salesperson';
-    
-    // If it's generic Speaker B/2, assume Prospect
-    if (lower === 'speaker b' || lower === 'speaker 2') return 'Prospect';
-    
-    return originalSpeaker;
   };
 
   return (
@@ -192,7 +212,7 @@ const TranscriptView: React.FC<TranscriptViewProps> = ({ transcript, fileName = 
                         {/* Tooltip Popup */}
                         <div className="absolute bottom-full mb-2 hidden group-hover/tooltip:block z-50 whitespace-nowrap left-1/2 -translate-x-1/2 pointer-events-none">
                            <div className="bg-slate-800 text-white text-[10px] font-medium px-2 py-1 rounded shadow-lg relative tracking-wide">
-                              {segment.timestamp} {segment.endTime ? `- ${segment.endTime}` : ''}
+                              Total time: {formatDuration(speakerStats[displaySpeaker] || 0)}
                               {/* Arrow */}
                               <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-slate-800"></div>
                            </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
 import TranscriptView from './components/TranscriptView';
 import SentimentChart from './components/SentimentChart';
@@ -32,13 +32,44 @@ const App: React.FC = () => {
   const [duration, setDuration] = useState<string>('');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
+  const [progress, setProgress] = useState(0);
   
   // Cache to store analysis results: Key = file hash/metadata
   const analysisCache = useRef<Map<string, CachedAnalysis>>(new Map());
   
   // Share state
   const [isShareOpen, setIsShareOpen] = useState(false);
-  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Simulate progress bar behavior
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    
+    if (appState === AppState.UPLOADING) {
+      setProgress(0);
+      interval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 35) return 35;
+          return prev + 2; // Fast increment for upload
+        });
+      }, 100);
+    } else if (appState === AppState.ANALYZING) {
+      // Start from where upload left off or 35
+      setProgress(prev => Math.max(prev, 35));
+      interval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) return 90; // Stall at 90% until complete
+          return prev + 0.4; // Slow increment for analysis
+        });
+      }, 150);
+    } else if (appState === AppState.SUCCESS) {
+      setProgress(100);
+    } else if (appState === AppState.IDLE || appState === AppState.ERROR) {
+      setProgress(0);
+    }
+
+    return () => clearInterval(interval);
+  }, [appState]);
 
   const addToRecentUploads = (key: string, name: string, dur: string) => {
     setRecentUploads(prev => {
@@ -98,8 +129,9 @@ const App: React.FC = () => {
         console.log("Loading analysis from cache...");
         const cached = analysisCache.current.get(cacheKey)!;
         
-        // Small delay to ensure state transition is smooth and noticeable
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Simulate a quick load with progress
+        setProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         setDuration(cached.duration);
         setAnalysisData(cached.result);
@@ -177,27 +209,55 @@ const App: React.FC = () => {
     setDuration('');
     setErrorMsg(null);
     setIsShareOpen(false);
+    setProgress(0);
+  };
+
+  const generateReportText = () => {
+    if (!analysisData) return '';
+    return `
+CALL ANALYSIS REPORT: ${fileName}
+Duration: ${duration}
+
+EXECUTIVE SUMMARY:
+${analysisData.summary}
+
+KEY TOPICS:
+${analysisData.topics.join(', ')}
+
+WINNING MOVES (Strengths):
+${analysisData.coaching.strengths.map(s => `• ${s}`).join('\n')}
+
+MISSED OPPORTUNITIES (Improvements):
+${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
+    `.trim();
   };
 
   const handleEmailShare = () => {
     if (!analysisData) return;
     const subject = encodeURIComponent(`Sales Analysis Report: ${fileName}`);
-    const body = encodeURIComponent(
-      `Here is the sales analysis report for ${fileName} (${duration}).\n\n` +
-      `Summary:\n${analysisData.summary}\n\n` +
-      `Topics:\n${analysisData.topics.join(', ')}\n\n` +
-      `Strengths:\n${analysisData.coaching.strengths.map(s => `- ${s}`).join('\n')}\n\n` +
-      `Improvements:\n${analysisData.coaching.improvements.map(s => `- ${s}`).join('\n')}\n`
-    );
+    const body = encodeURIComponent(generateReportText());
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
     setIsShareOpen(false);
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+  const handleCopyReport = () => {
+    const text = generateReportText();
+    navigator.clipboard.writeText(text);
     setIsShareOpen(false);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    showToast("Full report copied to clipboard");
+  };
+
+  const handleCopyTranscript = () => {
+    if (!analysisData) return;
+    const text = analysisData.transcript.map(t => `[${t.timestamp}] ${t.speaker}: ${t.text}`).join('\n');
+    navigator.clipboard.writeText(text);
+    setIsShareOpen(false);
+    showToast("Transcript text copied to clipboard");
+  };
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleExportCSV = () => {
@@ -211,7 +271,7 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => appState === AppState.SUCCESS ? handleReset() : null}>
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-200">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -222,7 +282,7 @@ const App: React.FC = () => {
           {appState === AppState.SUCCESS && (
             <button 
               onClick={handleReset}
-              className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors px-3 py-1.5 hover:bg-slate-50 rounded-md"
+              className="text-sm font-medium text-indigo-700 hover:text-indigo-800 transition-colors px-4 py-2 hover:bg-indigo-50 rounded-lg border border-indigo-100 bg-white shadow-sm"
             >
               Analyze New Call
             </button>
@@ -259,21 +319,30 @@ const App: React.FC = () => {
             )}
 
             {(appState === AppState.UPLOADING || appState === AppState.ANALYZING) ? (
-              <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-16 flex flex-col items-center justify-center">
-                <div className="mb-8">
-                  <svg className="animate-spin h-12 w-12 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+              <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-12 flex flex-col items-center justify-center w-full max-w-lg mx-auto">
+                <div className="w-full max-w-xs space-y-4">
+                  <div className="flex justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
+                     <span>{appState === AppState.UPLOADING ? 'Uploading Audio' : 'Processing Call'}</span>
+                     <span>{Math.round(progress)}%</span>
+                  </div>
+                  
+                  {/* Progress Bar Container */}
+                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                    <div 
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(99,102,241,0.3)]"
+                      style={{ width: `${progress}%` }}
+                    >
+                      {/* Optional: Subtle stripe pattern animation */}
+                      <div className="w-full h-full opacity-20 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem]"></div>
+                    </div>
+                  </div>
+
+                  <p className="text-center text-slate-400 text-sm animate-pulse pt-2">
+                    {appState === AppState.UPLOADING 
+                      ? 'Preparing your file for analysis...' 
+                      : 'Gemini is diarizing speakers and extracting insights...'}
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                  {appState === AppState.UPLOADING ? 'Uploading...' : 'Analyzing conversation...'}
-                </h3>
-                <p className="text-slate-500 text-center text-sm max-w-xs mx-auto">
-                  {appState === AppState.UPLOADING 
-                    ? 'Encrypting and preparing your file.' 
-                    : 'Gemini is diarizing speakers and extracting insights.'}
-                </p>
               </div>
             ) : (
               <>
@@ -361,7 +430,25 @@ const App: React.FC = () => {
                   </button>
 
                   {isShareOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1 overflow-hidden ring-1 ring-slate-900/5">
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1 overflow-hidden ring-1 ring-slate-900/5">
+                      <button 
+                        onClick={handleCopyReport}
+                        className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors border-b border-slate-50"
+                      >
+                         <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Copy Report to Clipboard
+                      </button>
+                      <button 
+                        onClick={handleCopyTranscript}
+                        className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors border-b border-slate-50"
+                      >
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        Copy Transcript Text
+                      </button>
                       <button 
                         onClick={handleEmailShare}
                         className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
@@ -370,15 +457,6 @@ const App: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                         Send via Email
-                      </button>
-                      <button 
-                        onClick={handleCopyLink}
-                        className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-                      >
-                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                        Copy Link
                       </button>
                     </div>
                   )}
@@ -426,12 +504,12 @@ const App: React.FC = () => {
       </main>
 
       {/* Toast */}
-      {showToast && (
+      {toastMessage && (
         <div className="fixed bottom-8 right-8 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 z-50 animate-bounce-up">
           <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
-          <span className="font-medium text-sm">Link copied to clipboard</span>
+          <span className="font-medium text-sm">{toastMessage}</span>
         </div>
       )}
     </div>
