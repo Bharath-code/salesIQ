@@ -3,6 +3,7 @@ import FileUpload from './components/FileUpload';
 import TranscriptView from './components/TranscriptView';
 import SentimentChart from './components/SentimentChart';
 import CoachingCard from './components/CoachingCard';
+import SalesIntelligence from './components/SalesIntelligence';
 import { AnalysisResult, AppState } from './types';
 import { analyzeSalesCall } from './services/gemini';
 import { fileToBase64, getAudioDuration, downloadFullAnalysisAsCsv } from './utils/fileUtils';
@@ -33,10 +34,10 @@ const App: React.FC = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
   const [progress, setProgress] = useState(0);
-  
+
   // Cache to store analysis results: Key = file hash/metadata
   const analysisCache = useRef<Map<string, CachedAnalysis>>(new Map());
-  
+
   // Share state
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -44,7 +45,7 @@ const App: React.FC = () => {
   // Simulate progress bar behavior
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
-    
+
     if (appState === AppState.UPLOADING) {
       setProgress(0);
       interval = setInterval(() => {
@@ -94,7 +95,7 @@ const App: React.FC = () => {
       // Re-create URL for playback since the previous one might have been revoked
       const newUrl = URL.createObjectURL(cached.file);
       setAudioUrl(newUrl);
-      
+
       setFileName(cached.file.name);
       setDuration(cached.duration);
       setAnalysisData(cached.result);
@@ -124,15 +125,15 @@ const App: React.FC = () => {
 
       // Check cache
       const cacheKey = `${CACHE_VERSION}-${file.name}-${file.size}-${file.lastModified}`;
-      
+
       if (analysisCache.current.has(cacheKey)) {
         console.log("Loading analysis from cache...");
         const cached = analysisCache.current.get(cacheKey)!;
-        
+
         // Simulate a quick load with progress
         setProgress(100);
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         setDuration(cached.duration);
         setAnalysisData(cached.result);
         setAppState(AppState.SUCCESS);
@@ -153,10 +154,10 @@ const App: React.FC = () => {
         console.error("File processing failed:", e);
         throw new Error("Unable to process the audio file. It might be corrupted or in an unsupported format.");
       }
-      
+
       setDuration(audioDuration);
       setAppState(AppState.ANALYZING);
-      
+
       // 3. AI Analysis (API Call)
       let result: AnalysisResult;
       try {
@@ -164,23 +165,23 @@ const App: React.FC = () => {
       } catch (e: any) {
         console.error("Gemini API Error:", e);
         const msg = e.message || '';
-        
+
         if (msg.includes('400')) throw new Error("The audio format is not supported by the AI model.");
         if (msg.includes('413')) throw new Error("The audio file is too large to be processed.");
         if (msg.includes('429')) throw new Error("Too many requests. Please wait a moment and try again.");
         if (msg.includes('Candidate was blocked')) throw new Error("Analysis blocked by safety filters. Content may be inappropriate.");
-        
+
         throw new Error("AI analysis failed to generate a response. Please try again.");
       }
-      
+
       // Save to cache
-      analysisCache.current.set(cacheKey, { 
-        result, 
+      analysisCache.current.set(cacheKey, {
+        result,
         duration: audioDuration,
         file: file,
         timestamp: Date.now()
       });
-      
+
       addToRecentUploads(cacheKey, file.name, audioDuration);
       setAnalysisData(result);
       setAppState(AppState.SUCCESS);
@@ -189,7 +190,7 @@ const App: React.FC = () => {
       console.error("Global handler:", err);
       setAppState(AppState.ERROR);
       setErrorMsg(err.message || "An unexpected error occurred. Please try again.");
-      
+
       // Cleanup the URL if we created one but failed to complete
       if (currentUrl) {
         URL.revokeObjectURL(currentUrl);
@@ -280,7 +281,7 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
             <h1 className="text-lg font-bold tracking-tight text-slate-900">SalesIQ</h1>
           </div>
           {appState === AppState.SUCCESS && (
-            <button 
+            <button
               onClick={handleReset}
               className="text-sm font-medium text-indigo-700 hover:text-indigo-800 transition-colors px-4 py-2 hover:bg-indigo-50 rounded-lg border border-indigo-100 bg-white shadow-sm"
             >
@@ -291,7 +292,7 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
-        
+
         {/* State: Idle / Uploading / Analyzing */}
         {(appState === AppState.IDLE || appState === AppState.UPLOADING || appState === AppState.ANALYZING || appState === AppState.ERROR) && (
           <div className="max-w-xl mx-auto mt-24">
@@ -301,7 +302,7 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
                 Gemini 2.5 Flash
               </span>
               <h2 className="text-4xl font-extrabold text-slate-900 mb-6 tracking-tight leading-tight">
-                Sales coaching <br/> 
+                Sales coaching <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">intelligence</span>
               </h2>
               <p className="text-lg text-slate-500 max-w-md mx-auto leading-relaxed">
@@ -322,13 +323,13 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
               <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-12 flex flex-col items-center justify-center w-full max-w-lg mx-auto">
                 <div className="w-full max-w-xs space-y-4">
                   <div className="flex justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
-                     <span>{appState === AppState.UPLOADING ? 'Uploading Audio' : 'Processing Call'}</span>
-                     <span>{Math.round(progress)}%</span>
+                    <span>{appState === AppState.UPLOADING ? 'Uploading Audio' : 'Processing Call'}</span>
+                    <span>{Math.round(progress)}%</span>
                   </div>
-                  
+
                   {/* Progress Bar Container */}
                   <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                    <div 
+                    <div
                       className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(99,102,241,0.3)]"
                       style={{ width: `${progress}%` }}
                     >
@@ -338,8 +339,8 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
                   </div>
 
                   <p className="text-center text-slate-400 text-sm animate-pulse pt-2">
-                    {appState === AppState.UPLOADING 
-                      ? 'Preparing your file for analysis...' 
+                    {appState === AppState.UPLOADING
+                      ? 'Preparing your file for analysis...'
                       : 'Gemini is diarizing speakers and extracting insights...'}
                   </p>
                 </div>
@@ -349,23 +350,23 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
                 <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5 overflow-hidden">
                   <FileUpload onFileSelect={handleFileSelect} disabled={appState !== AppState.IDLE && appState !== AppState.ERROR} />
                 </div>
-                
+
                 {/* Recent Uploads List */}
                 {recentUploads.length > 0 && (
                   <div className="mt-8 animate-fade-in-up">
                     <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 px-1">Recent Sessions</h3>
                     <div className="bg-white rounded-xl shadow-sm border border-slate-100 divide-y divide-slate-50 overflow-hidden">
                       {recentUploads.map((item) => (
-                        <div 
+                        <div
                           key={item.cacheKey}
                           onClick={() => handleRecentSelect(item.cacheKey)}
                           className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer transition-colors group"
                         >
                           <div className="flex items-center gap-3 overflow-hidden">
                             <div className="w-10 h-10 rounded-lg bg-indigo-50 flex-shrink-0 flex items-center justify-center text-indigo-600">
-                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 3-2 3-2zm0 0v-6.2M9 19l12-3M9 12.8V6" />
-                               </svg>
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 3-2 3-2zm0 0v-6.2M9 19l12-3M9 12.8V6" />
+                              </svg>
                             </div>
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-slate-900 truncate group-hover:text-indigo-700 transition-colors">
@@ -392,34 +393,34 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
         {/* State: Success (Dashboard) */}
         {appState === AppState.SUCCESS && analysisData && (
           <div className="space-y-6 animate-fade-in-up pb-20">
-             {/* Header Info */}
+            {/* Header Info */}
             <div className="flex items-center justify-between py-2">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Call Analysis</h2>
                 <div className="flex items-center gap-2 mt-1">
-                    <span className="flex h-2 w-2 rounded-full bg-emerald-500"></span>
-                    <p className="text-sm font-medium text-slate-500">{fileName}</p>
-                    {duration && (
-                      <>
-                        <span className="text-slate-300">•</span>
-                        <p className="text-sm font-medium text-slate-500">{duration}</p>
-                      </>
-                    )}
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  <p className="text-sm font-medium text-slate-500">{fileName}</p>
+                  {duration && (
+                    <>
+                      <span className="text-slate-300">•</span>
+                      <p className="text-sm font-medium text-slate-500">{duration}</p>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 relative">
-                 <button 
+                <button
                   onClick={handleExportCSV}
                   className="h-9 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2"
-                 >
-                   <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                >
+                  <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                   </svg>
-                   Export CSV
+                  </svg>
+                  Export CSV
                 </button>
-                
+
                 <div className="relative">
-                  <button 
+                  <button
                     onClick={() => setIsShareOpen(!isShareOpen)}
                     className="h-9 px-4 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200 flex items-center gap-2"
                   >
@@ -431,16 +432,16 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
 
                   {isShareOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1 overflow-hidden ring-1 ring-slate-900/5">
-                      <button 
+                      <button
                         onClick={handleCopyReport}
                         className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors border-b border-slate-50"
                       >
-                         <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
                         Copy Report to Clipboard
                       </button>
-                      <button 
+                      <button
                         onClick={handleCopyTranscript}
                         className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors border-b border-slate-50"
                       >
@@ -449,7 +450,7 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
                         </svg>
                         Copy Transcript Text
                       </button>
-                      <button 
+                      <button
                         onClick={handleEmailShare}
                         className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
                       >
@@ -467,10 +468,20 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
             <div className="grid grid-cols-12 gap-6 lg:gap-8">
               {/* Left Column: Metrics & Coaching */}
               <div className="col-span-12 lg:col-span-7 space-y-6">
-                
+
+                {/* NEW: Sales Intelligence Section */}
+                <SalesIntelligence
+                  verdict={analysisData.verdict}
+                  callType={analysisData.callType}
+                  riskAssessment={analysisData.riskAssessment}
+                  salesMetrics={analysisData.salesMetrics}
+                  nextSteps={analysisData.nextSteps}
+                  objections={analysisData.objections}
+                />
+
                 {/* Sentiment Chart */}
                 <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-200 p-6">
-                   <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center justify-between mb-6">
                     <div>
                       <h3 className="font-semibold text-slate-900">Engagement Flow</h3>
                       <p className="text-sm text-slate-500 mt-0.5">Sentiment tracking over duration</p>
@@ -485,14 +496,14 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
 
                 {/* Coaching Card */}
                 <CoachingCard coaching={analysisData.coaching} summary={analysisData.summary} />
-              
+
               </div>
 
               {/* Right Column: Transcript */}
               <div className="col-span-12 lg:col-span-5 h-[calc(100vh-12rem)] min-h-[600px] sticky top-24">
-                <TranscriptView 
-                  transcript={analysisData.transcript} 
-                  fileName={fileName} 
+                <TranscriptView
+                  transcript={analysisData.transcript}
+                  fileName={fileName}
                   topics={analysisData.topics || []}
                   audioUrl={audioUrl}
                 />
