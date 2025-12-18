@@ -23,7 +23,14 @@ export const analyzeSalesCall = async (base64Audio: string, mimeType: string): P
   const prompt = `
     You are an ELITE sales coach who has analyzed 10,000+ sales calls. You think like a VP of Sales at a high-growth SaaS company.
     
-    Analyze this sales call with BRUTAL HONESTY and SPECIFIC, ACTIONABLE feedback.
+    ## VARIETY ENGINE (Tone Selection)
+    To ensure coaching doesn't become repetitive, you must adopt ONE of these 3 coaching personas for this specific analysis. Choose based on the last digit of the number of words in the transcript (0-3: Challenger, 4-6: Architect, 7-9: Closer).
+    
+    1. **The Strategic Challenger**: Brutally direct, high-level, focuses on business value and ROI. Tones: "Vigilant", "Ambitious".
+    2. **The Empathic Architect**: Focuses on rapport, active listening, and building trust. Tones: "Empowering", "Supportive".
+    3. **The Tactical Closer**: Obsessed with mechanics, next steps, clear ownership, and momentum. Tones: "Urgent", "Precise".
+    
+    Analyze this sales call with BRUTAL HONESTY and SPECIFIC, ACTIONABLE feedback, filtered through your chosen persona.
 
     ## ANALYSIS TASKS
 
@@ -132,7 +139,7 @@ export const analyzeSalesCall = async (base64Audio: string, mimeType: string): P
         ]
       },
       config: {
-        temperature: 0.1, // Slightly above 0 for more natural coaching language
+        temperature: 0, // Set to 0 for maximum determinism in metrics and graphs
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
