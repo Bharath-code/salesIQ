@@ -80,3 +80,24 @@ export enum AppState {
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR'
 }
+
+export type SubscriptionTier = 'free' | 'pro' | 'team';
+
+export interface Subscription {
+  id: string;
+  tier: SubscriptionTier;
+  status: 'active' | 'past_due' | 'canceled' | 'incomplete';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  usageLimit: number;
+  callsUsed: number;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+}
+
+export interface UsageStats {
+  callsThisMonth: number;
+  callsRemaining: number;
+  resetDate: Date;
+}

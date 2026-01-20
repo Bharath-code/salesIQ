@@ -5,11 +5,13 @@ import SentimentChart from './components/SentimentChart';
 import CoachingCard from './components/CoachingCard';
 import SalesIntelligence from './components/SalesIntelligence';
 import Auth from './components/Auth';
-import { AnalysisResult, AppState } from './types';
+import DemoCalls from './components/DemoCalls';
+import { AnalysisResult, AppState, Subscription } from './types';
 import { analyzeSalesCall } from './services/gemini';
 import { supabase } from './services/supabase';
 import { fileToBase64, getAudioDuration, downloadFullAnalysisAsCsv } from './utils/fileUtils';
 import { User } from '@supabase/supabase-js';
+import { canUploadCall, formatLimitMessage, getDefaultSubscription } from './services/usageLimits';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -24,6 +26,7 @@ const App: React.FC = () => {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
 
   // Track Auth State
   useEffect(() => {
