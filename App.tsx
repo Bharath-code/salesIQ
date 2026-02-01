@@ -94,6 +94,50 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [appState]);
 
+  // Keyboard shortcuts for audio player
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only active in SUCCESS state
+      if (appState !== AppState.SUCCESS) return;
+
+      // Don't trigger if user is typing in an input
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      const audio = document.getElementById('main-audio-player') as HTMLAudioElement;
+      if (!audio) return;
+
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          audio.paused ? audio.play() : audio.pause();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          audio.currentTime = Math.max(0, audio.currentTime - 5);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          audio.currentTime = Math.min(audio.duration, audio.currentTime + 5);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          audio.volume = Math.min(1, audio.volume + 0.1);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          audio.volume = Math.max(0, audio.volume - 0.1);
+          break;
+        case 'KeyM':
+          audio.muted = !audio.muted;
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [appState]);
+
   const handleRecentSelect = async (callId: string) => {
     const call = recentUploads.find(c => c.id === callId);
     if (!call) return;
@@ -344,23 +388,55 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
 
             {(appState === AppState.UPLOADING || appState === AppState.ANALYZING) ? (
               <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-12 flex flex-col items-center justify-center w-full max-w-lg mx-auto backdrop-blur-sm bg-white/80">
-                <div className="w-full max-w-xs space-y-5">
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <span>{appState === AppState.UPLOADING ? 'Uploading Audio' : 'AI Analysis in Progress'}</span>
-                    <span>{Math.round(progress)}%</span>
+                <div className="w-full max-w-xs space-y-6">
+                  {/* Multi-step Progress Indicator */}
+                  <div className="flex justify-between items-center">
+                    {[
+                      { label: 'Upload', threshold: 0 },
+                      { label: 'Transcribe', threshold: 35 },
+                      { label: 'Analyze', threshold: 55 },
+                      { label: 'Generate', threshold: 80 }
+                    ].map((step, idx) => (
+                      <div key={step.label} className="flex flex-col items-center gap-1.5">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${progress >= step.threshold
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                          : 'bg-slate-100 text-slate-400'
+                          }`}>
+                          {progress >= step.threshold + 20 ? (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            idx + 1
+                          )}
+                        </div>
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${progress >= step.threshold ? 'text-indigo-600' : 'text-slate-400'
+                          }`}>
+                          {step.label}
+                        </span>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden shadow-inner">
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 bg-[length:200%_100%] animate-shimmer transition-all duration-300 ease-out shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-300 ease-out"
                       style={{ width: `${progress}%` }}
                     ></div>
                   </div>
 
-                  <p className="text-center text-slate-400 text-sm animate-pulse font-medium">
-                    {appState === AppState.UPLOADING
-                      ? 'Securing your data...'
-                      : 'Gemini is decoding deep sales signals...'}
+                  {/* Dynamic Status Message */}
+                  <p className="text-center text-slate-500 text-sm font-medium">
+                    {progress < 35 && 'Securing and uploading your audio...'}
+                    {progress >= 35 && progress < 55 && 'Transcribing conversation...'}
+                    {progress >= 55 && progress < 80 && 'Analyzing sales signals & objections...'}
+                    {progress >= 80 && 'Generating coaching insights...'}
+                  </p>
+
+                  {/* Keyboard hint */}
+                  <p className="text-center text-slate-400 text-[10px] uppercase tracking-wider">
+                    Press Esc to cancel
                   </p>
                 </div>
               </div>
@@ -613,15 +689,39 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
       <div className="fixed top-[-10%] right-[-5%] w-[400px] h-[400px] bg-indigo-500/5 blur-[120px] pointer-events-none -z-10 rounded-full"></div>
       <div className="fixed bottom-[-10%] left-[-5%] w-[400px] h-[400px] bg-violet-500/5 blur-[120px] pointer-events-none -z-10 rounded-full"></div>
 
-      {/* Toast Notifications */}
+      {/* Toast Notifications - Enhanced */}
       {toastMessage && (
-        <div className="fixed bottom-32 right-10 bg-slate-900/90 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] flex items-center gap-4 z-50 animate-bounce-up border border-white/10">
-          <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
-            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="fixed bottom-32 right-4 sm:right-10 bg-slate-900/95 backdrop-blur-md text-white px-5 py-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex items-center gap-3 z-50 border border-white/10 animate-fade-in-up max-w-[90vw] sm:max-w-sm">
+          <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <span className="font-bold text-sm tracking-tight">{toastMessage}</span>
+          <div className="flex-1 min-w-0">
+            <span className="font-semibold text-sm tracking-tight block truncate">{toastMessage}</span>
+            {/* Auto-dismiss progress bar */}
+            <div className="mt-2 h-0.5 bg-white/20 rounded-full overflow-hidden">
+              <div className="h-full bg-white/60 rounded-full animate-[shrink_3s_linear_forwards]" style={{ animation: 'shrink 3s linear forwards' }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard shortcut hint - shown in SUCCESS state */}
+      {appState === AppState.SUCCESS && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 text-slate-400 text-[10px] font-medium uppercase tracking-widest hidden sm:flex items-center gap-4 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-200 shadow-sm">
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-mono">Space</kbd>
+            Play/Pause
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-mono">← →</kbd>
+            Seek
+          </span>
+          <span className="flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[9px] font-mono">M</kbd>
+            Mute
+          </span>
         </div>
       )}
     </div>
