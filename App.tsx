@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import FileUpload from './components/FileUpload';
 import TranscriptView from './components/TranscriptView';
 import SentimentChart from './components/SentimentChart';
@@ -6,12 +6,14 @@ import CoachingCard from './components/CoachingCard';
 import SalesIntelligence from './components/SalesIntelligence';
 import Auth from './components/Auth';
 import DemoCalls from './components/DemoCalls';
+import RepPerformanceDashboard from './components/RepPerformanceDashboard';
 import { AnalysisResult, AppState, Subscription } from './types';
 import { analyzeSalesCall } from './services/gemini';
 import { supabase } from './services/supabase';
 import { fileToBase64, getAudioDuration, downloadFullAnalysisAsCsv } from './utils/fileUtils';
 import { User } from '@supabase/supabase-js';
 import { canUploadCall, formatLimitMessage, getDefaultSubscription } from './services/usageLimits';
+import { calculateAggregateStats, CallRecord } from './utils/statsUtils';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -27,6 +29,12 @@ const App: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [activeTab, setActiveTab] = useState<'analyze' | 'performance'>('analyze');
+
+  // Calculate aggregate stats from call history
+  const aggregateStats = useMemo(() => {
+    return calculateAggregateStats(recentUploads as CallRecord[]);
+  }, [recentUploads]);
 
   // Track Auth State
   useEffect(() => {
@@ -321,13 +329,35 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => appState === AppState.SUCCESS ? handleReset() : null}>
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => { setActiveTab('analyze'); if (appState === AppState.SUCCESS) handleReset(); }}>
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-200 transition-transform active:scale-95">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900">SalesIQ</h1>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1">
+            <button
+              onClick={() => setActiveTab('analyze')}
+              className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'analyze'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              Analyze
+            </button>
+            <button
+              onClick={() => setActiveTab('performance')}
+              className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'performance'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              Performance
+            </button>
           </div>
 
           <div className="flex items-center gap-4">
@@ -360,8 +390,16 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
+        {/* Performance Dashboard Tab */}
+        {activeTab === 'performance' && (
+          <RepPerformanceDashboard
+            stats={aggregateStats}
+            onAnalyzeNew={() => setActiveTab('analyze')}
+          />
+        )}
+
         {/* State: Idle / Uploading / Analyzing */}
-        {(appState === AppState.IDLE || appState === AppState.UPLOADING || appState === AppState.ANALYZING || appState === AppState.ERROR) && (
+        {activeTab === 'analyze' && (appState === AppState.IDLE || appState === AppState.UPLOADING || appState === AppState.ANALYZING || appState === AppState.ERROR) && (
           <div className="max-w-xl mx-auto mt-16 pb-20">
             <div className="text-center mb-12">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-wide mb-6">
@@ -500,7 +538,7 @@ ${analysisData.coaching.improvements.map(s => `• ${s}`).join('\n')}
         )}
 
         {/* State: Success (Dashboard) */}
-        {appState === AppState.SUCCESS && analysisData && (
+        {activeTab === 'analyze' && appState === AppState.SUCCESS && analysisData && (
           <div className="space-y-6 animate-fade-in-up pb-20">
             {/* Header Info */}
             <div className="flex items-center justify-between py-2 mb-4">
